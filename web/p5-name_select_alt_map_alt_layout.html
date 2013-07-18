@@ -1,0 +1,342 @@
+<!--
+Copyright 2013 RFGrove. All rights reserved.
+-->
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>GeoQuery</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <link rel="stylesheet" type="text/css" href="static/css/layout5.css">
+
+    <link rel="stylesheet" href="http://code.jquery.com/ui/1.10.0/themes/base/jquery-ui.css" />
+
+    <script src="http://code.jquery.com/jquery-1.8.3.js"></script>
+    <script src="http://code.jquery.com/ui/1.10.0/jquery-ui.js"></script>
+
+    <script type="text/javascript" src="static/OpenLayers.js"></script>
+    <script type="text/javascript" src="static/proj4js.js"></script>
+
+    <script type="text/javascript">
+
+      var map;
+      var vectors;
+
+      //var maxExtent = new OpenLayers.Bounds(-20037508, -20037508, 20037508, 20037508),
+      var maxExtent = new OpenLayers.Bounds(-10000000, 3000000, -5000000, 6000000),
+              restrictedExtent = maxExtent.clone(),
+              maxResolution = 156543.0339;
+      var centerLon = -78.14;
+      var centerLat = 38.98;
+
+      var featureSet = new Array();
+
+      /*
+       *  Initialization - get features list
+       */
+      $(document).ready(function() {
+        $("#dialog").dialog({
+          modal: true,
+          autoOpen: false,
+          width: "auto",
+          position: {my: "left top", at: "left top"},
+          title: "GeoSparql Query Text"
+        });
+        displayMap();
+      });
+
+      /*
+       * Display an initial map;
+       */
+      function displayMap() {
+        //        var options = {
+        //          projection: new OpenLayers.Projection('EPSG:900913'),
+        //          displayProjection: new OpenLayers.Projection('EPSG:4326'),
+        //          units: 'm',
+        //          numZoomLevels: 18,
+        //          maxResolution: maxResolution,
+        //          maxExtent: maxExtent,
+        //          restrictedExtent: restrictedExtent
+        //        };
+        //
+        //        map = new OpenLayers.Map('mapArea', options);
+        //
+        //        var smallScale = new OpenLayers.Layer.ArcGIS93Rest(
+        //        'SmallScale',
+        //        'http://raster1.nationalmap.gov/ArcGIS/rest' +
+        //          '/services/TNM_Small_Scale_Imagery/MapServer/export',
+        //        {} );
+        //
+        //        var nationalMapWMS = new OpenLayers.Layer.ArcGIS93Rest(
+        //        'NationalMapLarge',
+        //        'http://isse.cr.usgs.gov/ArcGIS/rest/services/TNM_Large_Scale_Imagery/MapServer/export',
+        //        {} );
+        map = new OpenLayers.Map('mapArea', {});
+        var wms = new OpenLayers.Layer.WMS(
+                'WMS Layer Title',
+                'http://vmap0.tiles.osgeo.org/wms/vmap0',
+                {layers: 'basic'},
+        {});
+
+        var osm = new OpenLayers.Layer.OSM('OpenStreeetMap Layer');
+
+        vectors = new OpenLayers.Layer.Vector('Vector Layer');
+
+        map.addLayers([osm, vectors]);
+
+        map.addControls([
+          // new OpenLayers.Control.OverviewMap(),
+          new OpenLayers.Control.PanZoomBar({}),
+          new OpenLayers.Control.LayerSwitcher({}),
+          // new OpenLayers.Control.Permalink(),
+          // new OpenLayers.Control.ScaleLine(),
+          // new OpenLayers.Control.KeyboardDefaults(),
+          new OpenLayers.Control.MousePosition(),
+          new OpenLayers.Control.Navigation({'zoomWheelEnabled': false})
+        ]);
+
+        // need to disable mouse zoom for each control
+        controls = map.getControlsByClass('OpenLayers.Control.Navigation');
+        for (var i = 0; i < controls.length; ++i)
+          controls[i].disableZoomWheel();
+
+        if (!map.getCenter()) {
+          map.zoomToMaxExtent();
+        }
+
+        //        var proj = new OpenLayers.Projection('EPSG:4326');
+        //        var mercator = new OpenLayers.Projection('EPSG:900913');
+        //
+        //        var center = new OpenLayers.LonLat(centerLon, centerLat);
+        //        map.setCenter(center.transform(proj, mercator), 9);
+      }
+
+      /*
+       * Get a list of features of the selected type.
+       * 1. setup and send the ajax query
+       * 2. when completed, invoke updateResults to list results
+       */
+      function searchFeatures() {
+        $('#queryResult').empty();
+        $('#queryResult').append('<p>Result:  (Click a result to map it.)</p>')
+
+        var query = '\
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n\
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\
+SELECT ?feature ?label \n\
+WHERE { \n\
+ ?feature rdfs:label ?label . \n\
+ FILTER( regex(?label, "' + $('#labelIn').val() + '" ) ) \n\
+} LIMIT 100\n';
+
+        $('#dialogText').append(query + "\n");
+
+        var request = $.ajax({
+          type: "GET",
+          url: "http://grove.cs.jmu.edu/parliament/sparql",
+          data: {
+            "query": query,
+            "output": "json"
+          }
+        });
+
+        request.done(function(msg) {
+          var result;
+
+          // sometimes a string, sometimes an object ???
+          if (typeof(msg) == "string") {
+            result = JSON.parse(msg);
+          }
+          else {
+            result = msg;
+          }
+
+          updateResult(result);
+        });
+
+        request.fail(function(jqXHR, textStatus) {
+          alert("Request Failed: " + textStatus);
+        });
+      }
+
+      /*
+       * List results of the query.
+       *
+       * @parameter  A JSON object encapsulating the GeoSPARQL query result.
+       * @return  none
+       */
+      function updateResult(result) {
+        var $tbl = $('<table>').attr('id', 'basicTable');
+
+        /* Create table headings */
+        var $tr = $('<tr>');
+
+        for (var i = 0; i < result['head']['vars'].length; ++i) {
+          $tr.append($('<th>').text(result['head']['vars'][i]));
+        }
+        $tbl.append($tr);
+        for (var j = 0; j < result['results']['bindings'].length; ++j) {
+          $tr = $('<tr>');
+          //         for (var key in result['results']['bindings'][j]) {
+          var value = result['results']['bindings'][j]['label'].value;
+
+          if (value.length > 50) {
+            $td = $('<td>').text(j + '. ' + value.substring(0, 50) + '...');
+          } else {
+            $td = $('<td>').text(j + '. ' + value);
+          }
+
+          featureSet[j + 1] = result['results']['bindings'][j]['feature'].value;
+          $td.click(function() {
+            var row = $(this).parent().parent().children().index($(this).parent());
+            addFeatureToMap(featureSet[row])
+          });
+
+          $td.mouseenter(function() {
+            $(this).css({backgroundColor: 'white'});
+          })
+          $td.mouseleave(function() {
+            $(this).css({backgroundColor: ''});
+          })
+
+          $tr.append($td);
+          //        }
+          $('#queryResult').append($tr);
+        }
+
+        $('#queryResult').append('<br/><p>Done.</p>');
+      }  // end updateResult()
+
+      /*
+       * Display the selected feature on the map.
+       *
+       * Parameters: none
+       * Returns: none
+       */
+      function addFeatureToMap(feature) {
+        var query = '\
+PREFIX geo:    <http://www.opengis.net/ont/geosparql#>\n\
+SELECT ?wkt \n\
+WHERE { \n\
+   <' + feature + '> geo:hasGeometry ?g . \n\
+   ?g geo:asWKT ?wkt . \n\
+} \n';
+
+        $('#dialogText').append(query + "\n");
+
+        var request = $.ajax({
+          type: "GET",
+          url: "http://grove.cs.jmu.edu/parliament/sparql",
+          data: {
+            "query": query,
+            "output": "json"
+          }
+        });
+
+        request.done(function(msg) {
+          var result;
+
+          // sometimes a string, sometimes an object ???
+          if (typeof(msg) == "string") {
+            result = JSON.parse(msg);
+          }
+          else {
+            result = msg;
+          }
+
+          updateMap(result);
+        });
+
+        request.fail(function(jqXHR, textStatus) {
+          alert("Request Failed: " + textStatus);
+        });
+      }
+
+      /*
+       * Update map display with the given result.
+       *
+       * Parameters: result, the value returned from Parliament
+       * Return:
+       */
+      function updateMap(result)
+      {
+        var features = new Array();
+        var bounds;
+        var options = {
+          'internalProjection': map.baseLayer.projection,
+          'externalProjection': new OpenLayers.Projection('EPSG:4269')
+        };
+        var parser = new OpenLayers.Format.WKT(options);
+
+        vectors.removeAllFeatures();
+
+        for (i = 0; i < result['results']['bindings'].length; ++i) {
+          var wkt = result['results']['bindings'][i]['wkt'];
+
+          if (wkt == undefined) {
+            alert('no wkt available');
+            return true;
+          }
+
+          // Remove CRS from from of wkt
+          var wkt2 = wkt['value'];
+
+          if (wkt2.split(/\>/)[1] != undefined) {
+            wkt2 = wkt2.split(/\>/)[1];
+          }
+
+          var feat = parser.read(wkt2);
+          if (feat != undefined) {
+            features.push(feat);
+          }
+        }
+
+        for (i = 0; i < features.length; ++i) {
+          if (!bounds) {
+            bounds = features[i].geometry.getBounds();
+          } else {
+            bounds.extend(features[i].geometry.getBounds());
+          }
+        }
+
+        vectors.addFeatures(features);
+        map.zoomToExtent(bounds);
+      }
+
+      function showQueries() {
+        $('#dialog').dialog('open');
+      }
+
+    </script>
+
+  <body>
+
+    <div id="container">
+
+      <div id="header">
+        <h1><span class="bolder">Geo</span>Sparql <span class="bolder">Query</span> Tool</h1>
+      </div>
+
+      <div id="inputArea">
+        <p>
+          Enter all or part of a feature label:
+          <input id="labelIn" type="text">
+          <input value="Search" onclick="searchFeatures();" type="button">
+          <input type="button" id="queryButton" value="Show Queries" onclick="showQueries();">
+        </p>
+      </div>
+
+      <div id="queryResult"><p>Search Results:</p></div>
+
+      <div id="mapArea"></div>
+
+      <div id="footer">Using http://grove.cs.jmu.edu/parliament</div>
+
+    </div>
+
+    <div id="dialog" title="Basic dialog">
+      <pre><span id="dialogText"></span></pre>
+    </div>
+
+  </body>
+</html>

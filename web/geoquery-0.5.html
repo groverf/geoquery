@@ -1,0 +1,274 @@
+<!--
+Copyright 2013 RFGrove. All rights reserved.
+-->
+<!--
+  Geoquery V0.5
+  Geographical query tool, based on OpenLayers. Uses GeoSparql to query a
+  Parliament server.
+-->
+<!DOCTYPE HTML>
+<html>
+  <head>
+    <title>GeoQuery</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <link rel="stylesheet" type="text/css" href="static/css/layout-0.5.css">
+
+    <link rel="stylesheet" href="http://code.jquery.com/ui/1.10.0/themes/base/jquery-ui.css" />
+
+    <script src="http://code.jquery.com/jquery-1.8.3.js"></script>
+    <script src="http://code.jquery.com/ui/1.10.0/jquery-ui.js"></script>
+
+    <script type="text/javascript" src="static/OpenLayers-2.12.js"></script>
+    <script type="text/javascript" src="static/proj4js.js"></script>
+
+    <script type="text/javascript" src="static/script/app-0.5.js"></script>
+
+  <body>
+
+    <div id="container">
+
+      <div id="header">
+        <table>
+          <tbody>
+            <tr>
+              <td width="80%">
+                <h1>
+                  <span class="bolder">Geo</span>Sparql <span class="bolder">Query</span> Tool
+                </h1>   
+              </td>
+              <td>
+                <img class="logo" src="static/image/jmu.jpg" alt="James Madison University logo"/>
+              </td>
+              <td>
+                <img class="logo" src="static/image/jmu.jpg" alt="James Madison University logo"/> 
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+      </div>
+
+      <div id="inputArea">
+
+        <div id="searchDiv">
+
+          <table width="100%">
+            <tbody>
+
+              <tr>
+                <td width="50%" class="colorGroup1">
+
+                  <table>
+                    <tbody>
+                      <tr>
+                        <td>1. Feature 1 Type:</td>
+                        <td>
+                          <span id="featureTypeSelector1">
+                            <select> <option>--</option> </select>
+                          </span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>2. Search by Property:</td>
+                        <td>
+                          <span id="propertySelector1">
+                            <select> <option>--</option> </select>
+                          </span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td></td>
+                        <td>
+                          <input id="searchTerm1" type="text">
+                          <input value="Search" onclick="searchFeatures(1);" type="button"/>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>3. Selection:</td>
+                        <td>
+                          <span id="selectedFeature1NameA" class="nameBox">----------</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>4. Spatial Operation:</td>
+                        <td>
+                          <label><input type="radio" id="spatialOp1None" name="spatialOp1" value="none" checked="checked"/>None</label>
+                          <label><input type="radio" name="spatialOp1" value="buffer"/>Buffer</label>
+                          <label><input type="radio" name="spatialOp1" value="convexHull"/>Convex Hull</label>
+                          <label><input type="radio" name="spatialOp1" value="envelope"/>Envelope</label>
+                          <label><input type="radio" name="spatialOp1" value="boundary"/>Boundary</label>
+                          <input value="Go" id="spatialOp1Button" onclick="unarySpatialOp(1);" type="button" disabled="disabled"/>
+                        </td>
+                      </tr>
+
+                    </tbody>
+                  </table>        
+
+                </td>
+
+                <td width="50%" class="colorGroup2">
+
+                  <table>
+                    <tbody>
+                      <tr>
+                        <td>1. Feature 2 Type:</td>
+                        <td>
+                          <span id="featureTypeSelector2">
+                            <select> <option>--</option> </select>
+                          </span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>2a. Search by Property:</td>
+                        <td>
+                          <span id="propertySelector2">
+                            <select> <option>--</option> </select>
+                          </span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td></td>
+                        <td>
+                          <input id="searchTerm2" type="text">
+                          <input value="Search" onclick="searchFeatures(2);" type="button"/>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>2b. Search by Relation:</td>
+                        <td>
+                          <select id="spatialRelationSelector2">
+                            <option value="sfEquals">SF: Equals</option>
+                            <option value="sfContains">SF: Contains</option>
+                            <option value="sfDisjoint">SF: Disjoint</option>
+                            <option value="sfIntersects">SF: Intersects</option>
+                            <option value="sfOverlaps">SF: Overlaps</option>
+                            <option value="sfTouches">SF: Touches</option>
+                            <option value="sfWithin">SF: Within</option>
+                            <option value="ehEquals">9-IM: Equals</option>
+                            <option value="ehDisjoint">9-IM: Disjoint</option>
+                            <option value="ehMeet">9-IM: Meet</option>
+                            <option value="ehOverlap">9-IM: Overlap</option>
+                            <option value="ehCovers">9-IM: Covers</option>
+                            <option value="chCoveredBy">9-IM: CoveredBy</option>
+                            <option value="ehInside">9-IM Inside</option>
+                            <option value="ehContains">9-IM: Contains</option>
+                            <option value="rcc8Eq">rcc8Eq</option>
+                            <option value="rcc8dc">rcc8dc</option>
+                            <option value="rcc8po">rcc8po</option>
+                            <option value="rcc8tppi">rcc8tppi</option>
+                            <option value="rcc8tpp">rcc8tpp</option>
+                            <option value="rcc8ntpp">rcc8ntpp</option>
+                            <option value="rcc8ntppi">rcc8ntppi</option>
+                          </select>
+                          <span id="selectedFeature1NameC" class="nameBox">----------</span>
+                          <input value="Search" id="spatialRelButton" onclick="searchFeaturesByRelation()" type="button"/>
+                        </td>
+                      </tr>
+
+                      <tr>
+                        <td>3. Selection</td>
+                        <td>
+                          <span id="selectedFeature2NameA" class="nameBox">----------</span>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>4. Spatial Operation:</td>
+                        <td>
+                          <label><input type="radio" id="spatialOp2None" name="spatialOp2" value="none" checked="checked"/>None</label>
+                          <label><input type="radio" name="spatialOp2" value="buffer"/>Buffer</label>
+                          <label><input type="radio" name="spatialOp2" value="convexHull"/>Convex Hull</label>
+                          <label><input type="radio" name="spatialOp2" value="envelope"/>Envelope</label>
+                          <label><input type="radio" name="spatialOp2" value="boundary"/>Boundary</label>
+                          <input value="Go" id="spatialOp2Button" onclick="unarySpatialOp(2);" type="button" disabled="disabled"/>
+                        </td>
+                      </tr>
+
+                    </tbody>
+                  </table>
+
+                </td>  
+              </tr>
+
+              <tr>
+                <td colspan="2" class="colorGroup3" style="text-align: center; padding: 5px">
+                  Binary Spatial Operation: &nbsp;&nbsp;&nbsp;
+                  <span id="selectedFeature1NameB">--</span>
+                  <select id="spatialOperationSelector3">
+                    <option>intersection</option>
+                    <option>union</option>
+                    <option>difference</option>
+                    <option>symDifference</option>
+                    <option>distance</option>
+                  </select>
+                  <span id="selectedFeature2NameB">--</span>
+                  <button id="spatialOp3Button" onclick="binarySpatialOp();">Go</button>
+                </td>
+              </tr>
+
+            </tbody>
+          </table>
+
+        </div>
+      </div>
+
+      <div id="resultDiv">
+        <div class="colorGroup1 resultBox">
+          <span>
+            <input type="button" value="+/-" 
+                   onclick="$('#queryResultArea1').slideToggle();" />
+            Feature 1 Search Results
+          </span>
+          <br/>
+          <span id="queryResultArea1">
+            ...No search results yet...
+          </span>
+        </div>        
+
+        <div class="colorGroup2 resultBox">
+          <span>
+            <input type="button" value="+/-" 
+                   onclick="$('#queryResultArea2').slideToggle();" />
+            Feature 2 Search Results
+          </span>
+          <br/>
+          <span id="queryResultArea2">
+            ...No search results yet...
+          </span>
+        </div>
+
+        <div class="resultBox">
+          <span>
+            <button onclick="clearSearchLayers();" class="right">Clear Map</button>
+            <button onclick="$('#queriesDialog').dialog('open');" class="right">Show Queries</button>
+            <button onclick="$('#featureListArea').slideToggle();">+/-</button>
+            Layers
+          </span>
+          <br/>&nbsp;
+          <span id="featureListArea"></span>
+        </div>
+
+      </div>
+
+      <div id="mapArea">
+      </div>
+
+      <div id="footer">
+        <span class="left">Version: 0.5</span>
+        Using <span id="url"></span>
+        &nbsp;&nbsp;
+        <button id="urlButton" onclick="changeUrl();">Change URL</button>
+      </div>
+
+    </div>
+
+    <div id="queriesDialog" class="dialog" title="GeoSparql Queries">
+      <pre><span id="queryDialogText"></span></pre>
+    </div>
+    
+    <div id="attributesDialog" class="dialog" title="Attributes">
+      <pre><span id="attributesDialogText"></span></pre>
+    </div>
+
+  </body>
+</html>

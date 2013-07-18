@@ -1,0 +1,102 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 3.2//EN"> 
+<html>
+  <head>
+    <meta http-equiv = "Content-Type" content = "text/html; charset=iso-8859-1"> 
+    <title>GeoSparql Query Visualization</title>
+
+    <style type='text/css'>
+      li {
+        list-style: none;
+      }
+      .bigmap {
+        height: 100%;
+        width: 100%;
+      }
+      .dialog {
+        overflow: scroll;
+        font-size: 62.5%;
+      }
+      .ui-layout-center { 
+        overflow: hidden; 
+      }
+      .ui-layout-north ul ul {
+        /* Drop-Down */
+        bottom:		auto;
+        margin:		0;
+        margin-top:	1.45em; 
+      }
+    </style>
+
+    <link rel="stylesheet" type="text/css" href="static/jquery-ui/themes/smoothness/jquery.ui.all.css" />
+    <link rel="stylesheet" type="text/css" href="static/layout-default.css" />
+
+    <script type="text/javascript" src="static/jquery-latest.js"></script>
+    <script type="text/javascript" src="static/jquery-ui-latest.js"></script>
+    <script type="text/javascript" src="static/jquery.layout-latest.js"></script>
+
+    <script type="text/javascript" src="static/OpenLayers.js"></script>
+
+    <script type="text/javascript" src="static/proj4js.js"></script>
+
+    <script type="text/javascript" src="static/usgs-app.js"></script>
+
+  </head>
+
+
+  <body onload="init()">
+
+    <div id="tabs_div" class="ui-layout-center">
+
+      <div class="ui-layout-content ui-widget-content ui-corner-bottom" 
+           style="border-top:0; padding-bottom: 1em;">
+        <div id='map' class='bigmap'>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="ui-layout-north">
+
+      <div class="demo" style="float: left;">
+        <button>SPARQL Query</button>
+      </div>
+
+      <div id="query1" title="SPARQL Query">
+        <form onsubmit="$('#query1').dialog('close');
+      submitquery();
+      return false;">
+
+          <!-- {% csrf_token %} -->
+
+          <textarea name="query" id="queryarea" cols="90" rows="20" spellcheck="false">
+          </textarea>
+          <br />
+          <input type="submit" value="Submit Query" />
+          <input type="button" value="Sample Query 1" id="sample1" />
+          <input type="button" value="Sample Query 2" id="sample2" />
+        </form>
+      </div>
+
+      <div class="tresults" style="float:left;">
+        <button>Tabular Results</button>
+      </div>
+
+      <div id="tab_2">
+        <h3>No results yet</h3>
+      </div>
+
+      <div class="sresults" style="float:left;">
+        <button>SPARQL Response</button>
+      </div>
+
+      <div id="tab_3" class="dialog">
+        <h3>No response yet</h3>
+      </div>
+
+      <div class="reset" style="float:right;">
+        <button>Reset</button>
+      </div>
+
+    </div>
+  </body>
+</html>

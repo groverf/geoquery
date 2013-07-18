@@ -1,0 +1,188 @@
+<!--
+Copyright 2013 RFGrove. All rights reserved.
+-->
+
+Find duplicate geometries:
+
+SELECT ?geom
+WHERE {
+  ?geom  <http://www.opengis.net/ont/geosparql#asWKT> ?c1 ;
+         <http://www.opengis.net/ont/geosparql#asWKT> ?c2 .
+
+  FILTER( str(?c1) < str(?c2)
+    && str(?geom) != "http://cegis.usgs.gov/rdf/trans/Geometries/None"
+    && str(?geom) != "http://cegis.usgs.gov/rdf/struct/Geometries/None" )
+} 
+
+
+
+Spatial Relationship Query
+
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+PREFIX geof: <http://www.opengis.net/def/function/geosparql/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT
+?label
+WHERE {
+   ?feature1 rdfs:label ?label .
+   ?feature1 geo:hasGeometry ?geom1 .
+   ?geom1 geo:asWKT ?wkt1 .
+   ?feature2 rdfs:label "Rockingham" .
+   ?feature2 geo:hasGeometry ?geom2 .
+   ?geom2 geo:asWKT ?wkt2 .
+   FILTER ( geof:sfTouches(?wkt1, ?wkt2) ) .
+} 
+
+Version 2:
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT
+  ?label
+WHERE {
+  ?feature1 rdfs:label ?label .
+  ?feature1 geo:hasGeometry ?geom1 .
+  ?feature2 rdfs:label "Rockingham" .
+  ?feature2 geo:hasGeometry ?geom2 .
+  ?geom2 geo:sfTouches ?geom1 .
+}
+
+
+Bounding Box Query
+
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+PREFIX geof: <http://www.opengis.net/def/function/geosparql/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT DISTINCT ?feature ?label 
+WHERE { 
+ ?feature rdfs:label ?label . 
+ ?feature geo:hasGeometry ?geom .
+ ?geom geo:asWKT ?wkt .
+ FILTER (geof:sfWithin(?wkt, 
+  "POLYGON ((-79.0379 38.2328, -79.0379 38.5387, -78.7203 38.5387, -78.7203 38.2328, -79.0379 38.2328))"^^geo:wktLiteral))
+} LIMIT 100
+
+
+Distance Query:
+
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+PREFIX geof: <http://www.opengis.net/def/function/geosparql/>
+PREFIX units: <http://www.opengis.net/def/uom/OGC/1.0/>
+
+SELECT ?distance
+WHERE { 
+   <http://cegis.usgs.gov/rdf/gu/Features/1498563> geo:hasGeometry ?g1 . 
+   ?g1 geo:asWKT ?wkt1 . 
+   <http://cegis.usgs.gov/rdf/gu/Features/1789075> geo:hasGeometry ?g2 . 
+   ?g2 geo:asWKT ?wkt2 . 
+   BIND (geof:distance(?wkt1, ?wkt2, units:metre) AS ?distance) .
+} 
+
+
+Find closest:
+
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+PREFIX geof: <http://www.opengis.net/def/function/geosparql/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX units: <http://www.opengis.net/def/uom/OGC/1.0/>
+
+SELECT ?label ?distance
+WHERE { 
+  <http://cegis.usgs.gov/rdf/gu/Features/1498563> geo:hasGeometry ?geom1 .
+  ?geom1 geo:asWKT ?wkt1 . 
+
+  ?feature2 rdf:type <http://cegis.usgs.gov/rdf/gu/incorporatedPlace> . 
+  FILTER ( str(?feature2) !=  "http://cegis.usgs.gov/rdf/gu/Features/1498563") .
+  ?feature2 rdfs:label ?label .
+  ?feature2 geo:hasGeometry ?geom2 . 
+  ?geom2 geo:asWKT ?wkt2 . 
+
+   BIND (geof:distance(?wkt1, ?wkt2, units:metre) AS ?distance) .
+}
+ORDER BY ASC(?distance)
+LIMIT 1
+
+
+Buffer query:
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+PREFIX geof: <http://www.opengis.net/def/function/geosparql/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX units: <http://www.opengis.net/def/uom/OGC/1.0/>
+
+SELECT ?wkt2
+WHERE {
+   ?feature rdfs:label "Harrisonburg" .
+   ?feature geo:hasGeometry ?geom1 .
+   ?geom1 geo:asWKT ?wkt1 .
+   BIND (geof:buffer(?wkt1, 1000, units:metre) AS ?wkt2) .
+}
+
+convexHull, envelope, boundary
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+PREFIX geof: <http://www.opengis.net/def/function/geosparql/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX units: <http://www.opengis.net/def/uom/OGC/1.0/>
+
+SELECT ?wkt2
+WHERE {
+   ?feature rdfs:label "Harrisonburg" .
+   ?feature geo:hasGeometry ?geom1 .
+   ?geom1 geo:asWKT ?wkt1 .
+   BIND (geof:convexHull(?wkt1) AS ?wkt2) .
+}
+
+
+intersection, union, difference, symdifference,:
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+PREFIX geof: <http://www.opengis.net/def/function/geosparql/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX units: <http://www.opengis.net/def/uom/OGC/1.0/>
+
+SELECT ?wkt
+WHERE {
+   ?feature rdfs:label "Harrisonburg" .
+   ?feature geo:hasGeometry ?geom1 .
+   ?geom1 geo:asWKT ?wkt1 .
+   ?feature2 rdfs:label "Rockingham" .
+   ?feature2 geo:hasGeometry ?geom2 .
+   ?geom2 geo:asWKT ?wkt2 .
+   BIND (geof:union(?wkt1, ?wkt2) AS ?wkt) .
+}
+
+
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>
+PREFIX geof: <http://www.opengis.net/def/function/geosparql/>
+
+SELECT DISTINCT ?label1 ?label2 
+WHERE { 
+ # Select features of the specified type:
+  ?feature1 rdf:type <http://cegis.usgs.gov/rdf/gu/incorporatedPlace> . 
+  # Eliminate the group of features ending in "/None" 
+  FILTER(! regex(str(?feature1), "/None$", "i" ) ) . 
+  ?feature1 rdfs:label ?label1 . 
+ # Filter features by property: 
+  ?feature1 <http://www.w3.org/2000/01/rdf-schema#label> ?obj1 .
+  FILTER( regex(str(?obj1), "Ha", "i" ) ) . 
+
+ # Select features of the specified type:
+  ?feature2 rdf:type <http://cegis.usgs.gov/rdf/gu/countyOrEquivalent> . 
+  # Eliminate the group of features ending in "/None" 
+  FILTER(! regex(str(?feature2), "/None$", "i" ) ) . 
+  ?feature2 rdfs:label ?label2 . 
+ # Filter features by property: 
+  ?feature2 <http://www.w3.org/2000/01/rdf-schema#label> ?obj2 .
+  FILTER( regex(str(?obj2), "Ro", "i" ) ) . 
+
+ # Filter features by relation to feature1:
+  ?feature1 geo:hasGeometry ?g1 .
+  ?g1 geo:asWKT ?wkt1 . 
+  ?feature2 geo:hasGeometry ?g2 .
+  ?g2 geo:asWKT ?wkt2 .
+  FILTER (geof:sfTouches(?wkt1, ?wkt2)) .
+  
+}

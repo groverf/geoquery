@@ -1,0 +1,512 @@
+<!--
+Copyright 2013 RFGrove. All rights reserved.
+-->
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <title>GeoQuery</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <link rel="stylesheet" type="text/css" href="static/css/layout2.css" />
+
+    <script type="text/javascript" src="static/jquery.js"></script>
+    <script type="text/javascript" src="static/OpenLayers.js"></script>
+    <script type="text/javascript" src="static/proj4js.js"></script>
+
+    <script type="text/javascript">
+      var hostURL = 'http://grove.cs.jmu.edu';
+
+      var map;
+      //var maxExtent = new OpenLayers.Bounds(-20037508, -20037508, 20037508, 20037508),
+      var maxExtent = new OpenLayers.Bounds(-10000000, 3000000, -5000000, 6000000),
+              restrictedExtent = maxExtent.clone(),
+              maxResolution = 156543.0339;
+      var centerLon = -78.14;
+      var centerLat = 38.98;
+
+      var vectors;
+
+      var featureSet = new Array();
+
+      /*
+       *  Initialization - get features list
+       */
+      $(document).ready(function() {
+        displayMap();
+        getFeatureTypes();
+        $('#hostSelector').change(function() {
+          hostURL = $('#hostSelector option:selected').text();
+          getFeatureTypes();
+        });
+      });
+
+      /*
+       * Display an initial map;
+       */
+      function displayMap() {
+        var options = {
+          projection: new OpenLayers.Projection('EPSG:900913'),
+          displayProjection: new OpenLayers.Projection('EPSG:4326'),
+          units: 'm',
+          numZoomLevels: 18,
+          maxResolution: maxResolution,
+          maxExtent: maxExtent,
+          restrictedExtent: restrictedExtent
+        };
+
+        map = new OpenLayers.Map('mapArea', options);
+
+        var smallScale = new OpenLayers.Layer.ArcGIS93Rest(
+                'SmallScale',
+                'http://raster1.nationalmap.gov/ArcGIS/rest' +
+                '/services/TNM_Small_Scale_Imagery/MapServer/export',
+                {});
+
+        var nationalMapWMS = new OpenLayers.Layer.ArcGIS93Rest(
+                'NationalMapLarge',
+                'http://isse.cr.usgs.gov/ArcGIS/rest/services/TNM_Large_Scale_Imagery/MapServer/export',
+                {});
+
+        vectors = new OpenLayers.Layer.Vector('Vector Layer');
+
+        map.addLayers([smallScale, nationalMapWMS, vectors]);
+
+        var proj = new OpenLayers.Projection('EPSG:4326');
+        var mercator = new OpenLayers.Projection('EPSG:900913');
+
+        var center = new OpenLayers.LonLat(centerLon, centerLat);
+        map.setCenter(center.transform(proj, mercator), 9);
+      }
+
+      /*
+       * Display a list of features from the Parliament store.
+       */
+      function getFeatureTypes() {
+        $('#featureTypeSelector').empty();
+        $('#featureTypeSelector').append('...working...');
+
+        var featureTypeQuery = '\
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n\
+SELECT DISTINCT ?type \n\
+WHERE { \n\
+ ?feature rdf:type ?type . \n\
+} \n';
+
+        $('#queryArea').append('<pre>' + escape(featureTypeQuery) + '</pre><hr/>');
+
+        var request = $.ajax({
+          type: "GET",
+          url: hostURL + "/parliament/sparql",
+          data: {
+            "query": featureTypeQuery,
+            "output": "json"
+          }
+        });
+
+        request.done(function(msg) {
+          var result;
+          // sometimes a string, sometimes an object ???
+          if (typeof(msg) == "string") {
+            result = JSON.parse(msg);
+          }
+          else {
+            result = msg;
+          }
+          createFeatureTypeSelect(result);
+        });
+
+        request.fail(function(jqXHR, textStatus) {
+          alert("Request Failed: " + textStatus);
+        });
+      }
+
+      /*
+       * Update the feature type selector
+       *
+       * Parameter: result, the return value from Parliament
+       * Return: none
+       */
+      function createFeatureTypeSelect(result) {
+        var $select = $('<select id="featureType"></select>');
+
+        for (var j = 0; j < result['results']['bindings'].length; ++j) {
+          for (var key in result['results']['bindings'][j]) {
+            var bindings = result['results']['bindings'];
+            $select.append($('<option>').text(bindings[j][key].value));
+          }
+        }
+
+        $select.change(function() {
+          getTypeFeatures();
+        });
+
+        $('#featureTypeSelector').empty();
+        $('#featureTypeSelector').append($select);
+      }
+
+      /*
+       * Create a selector from the specific features returned by the feature 
+       * type selection.
+       * 
+       * Parameters: none
+       * Return: none
+       */
+      function getTypeFeatures() {
+        $('#featureSelector').append('...working...');
+
+        type = '<' + $("#featureType option:selected").text() + '>';
+
+        var featureQuery = '\
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n\
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\
+SELECT DISTINCT ?label \n\
+WHERE { \n\
+ ?feature rdf:type ' + type + ' . \n\
+ ?feature rdfs:label ?label \n\
+} \n';
+
+        $('#queryArea').append('<pre>' + escape(featureQuery) + '</pre><hr/>');
+
+        var request = $.ajax({
+          type: "GET",
+          url: hostURL + "/parliament/sparql",
+          data: {
+            "query": featureQuery,
+            "output": "json"
+          }
+        });
+
+        request.done(function(msg) {
+          var result;
+          // sometimes a string, sometimes an object ???
+          if (typeof(msg) == "string") {
+            result = JSON.parse(msg);
+          }
+          else {
+            result = msg;
+          }
+          createTypeFeatureSelect(result);
+        });
+
+        request.fail(function(jqXHR, textStatus) {
+          alert("Request Failed: " + textStatus);
+        });
+      }
+
+      /*
+       * Update the feature type selector
+       *
+       * Parameter: result, the return value from Parliament
+       * Return: none
+       */
+      function createTypeFeatureSelect(result) {
+        var $select = $('<select id="feature"></select>');
+
+        for (var j = 0; j < result['results']['bindings'].length; ++j) {
+          for (var key in result['results']['bindings'][j]) {
+            var bindings = result['results']['bindings'];
+            $select.append($('<option>').text(bindings[j][key].value));
+          }
+        }
+
+        $('#featureSelector').empty();
+        $('#featureSelector').append($select);
+      }
+
+
+
+      /*
+       * Get a list of features with the selected relationship.
+       * 1. setup and send the ajax query
+       * 2. when completed, invoke updateResults to list results
+       */
+      function listRelatedFeatures() {
+        $('#queryResult').empty();
+        $('#queryResult').append('<p>Result:  (Click a result to map it.)</p>')
+        $('#queryResult').append('<p>...working... (might take several minutes)</p>');
+
+        var feature = $('#featureSelector option:selected').text();
+        var relationship = $('#relationshipSelector option:selected').val();
+
+        /* The second FILTER in the query, ../None..., was added because there
+         * are several features in the data store coded this way, and their
+         * serializations are indistinguishable. So, if one "None" serialization
+         * is selected, then they all get added to the results. 
+         */
+        var query = '\
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>\n\
+PREFIX geof: <http://www.opengis.net/def/function/geosparql/>\n\
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\
+SELECT DISTINCT ?label ?feature \n\
+WHERE { \n\
+  ?feature1 rdfs:label "' + feature + '" .\n\
+  ?feature1 geo:hasGeometry ?geom1 .\n\
+  ?geom1 geo:asWKT ?wkt1 .\n\
+  ?feature rdfs:label ?label .\n\
+  ?feature geo:hasGeometry ?geom2 .\n\
+  ?geom2 geo:asWKT ?wkt2 .\n\
+  FILTER ( str(?feature) != "http://cegis.usgs.gov/rdf/struct/Features/None" ) .\n\
+  FILTER ( geof:' + relationship + '(?wkt2, ?wkt1) ) .\n\
+ } LIMIT 1000\n';
+
+        $('#queryArea').append('<pre>' + escape(query) + '<pre><hr/>');
+
+        var request = $.ajax({
+          type: "GET",
+          url: hostURL + "/parliament/sparql",
+          data: {
+            "query": query,
+            "output": "json"
+          }
+        });
+
+        request.done(function(msg) {
+          var result;
+
+          // sometimes a string, sometimes an object ???
+          if (typeof(msg) == "string") {
+            result = JSON.parse(msg);
+          }
+          else {
+            result = msg;
+          }
+
+          updateResult(result);
+        });
+
+        request.fail(function(jqXHR, textStatus) {
+          alert("Request Failed: " + textStatus);
+        });
+      }
+
+      /*
+       * List results of the query.
+       * 
+       * @parameter  A JSON object encapsulating the GeoSPARQL query result.
+       * @return  none
+       */
+      function updateResult(result) {
+        $('#queryResult').empty();
+        $('#queryResult').append('<p>Result:  (Click a result to map it.)</p>')
+
+        var $tbl = $('<table>').attr('id', 'basicTable');
+
+        /* Create table headings */
+        var $tr = $('<tr>');
+
+        for (var i = 0; i < result['head']['vars'].length; ++i) {
+          $tr.append($('<th>').text(result['head']['vars'][i]));
+        }
+        $tbl.append($tr);
+        for (var j = 0; j < result['results']['bindings'].length; ++j) {
+          $tr = $('<tr>');
+          //         for (var key in result['results']['bindings'][j]) {
+          var value = result['results']['bindings'][j]['label'].value;
+
+          if (value.length > 50) {
+            $td = $('<td>').text(j + '. ' + value.substring(0, 50) + '...');
+          } else {
+            $td = $('<td>').text(j + '. ' + value);
+          }
+
+          featureSet[j + 1] = result['results']['bindings'][j]['feature'].value;
+          $td.click(function() {
+            var row = $(this).parent().parent().children().index($(this).parent());
+            addFeatureToMap(featureSet[row])
+          });
+
+          $td.mouseenter(function() {
+            $(this).css({backgroundColor: 'white'});
+          })
+          $td.mouseleave(function() {
+            $(this).css({backgroundColor: ''});
+          })
+
+          $tr.append($td);
+          //        }
+          $('#queryResult').append($tr);
+        }
+
+        $('#queryResult').append('<br/><p>Done.</p>');
+      }  // end updateResult()
+
+      /*
+       * Display the selected feature on the map.
+       * 
+       * Parameters: none
+       * Returns: none
+       */
+      function addFeatureToMap(feature) {
+        var query = '\
+PREFIX geo:    <http://www.opengis.net/ont/geosparql#>\n\
+SELECT ?wkt \n\
+WHERE { \n\
+   <' + feature + '> geo:hasGeometry ?g . \n\
+   ?g geo:asWKT ?wkt . \n\
+} \n';
+
+        $('#queryArea').append('<pre>' + escape(query) + '</pre><hr/>');
+
+        var request = $.ajax({
+          type: "GET",
+          url: hostURL + "/parliament/sparql",
+          data: {
+            "query": query,
+            "output": "json"
+          }
+        });
+
+        request.done(function(msg) {
+          var result;
+
+          // sometimes a string, sometimes an object ???
+          if (typeof(msg) == "string") {
+            result = JSON.parse(msg);
+          }
+          else {
+            result = msg;
+          }
+
+          updateMap(result);
+        });
+
+        request.fail(function(jqXHR, textStatus) {
+          alert("Request Failed: " + textStatus);
+        });
+      }
+
+      /*
+       * Update map display with the given result.
+       * 
+       * Parameters: result, the value returned from Parliament
+       * Return:
+       */
+      function updateMap(result)
+      {
+        var features = new Array();
+        var bounds;
+        var options = {
+          'internalProjection': map.baseLayer.projection,
+          'externalProjection': new OpenLayers.Projection('EPSG:4269')
+        };
+        var parser = new OpenLayers.Format.WKT(options);
+
+        vectors.removeAllFeatures();
+
+        for (i = 0; i < result['results']['bindings'].length; ++i) {
+          var wkt = result['results']['bindings'][i]['wkt'];
+
+          if (wkt == undefined) {
+            alert('no wkt available');
+            return true;
+          }
+
+          // Remove CRS from from of wkt
+          var wkt2 = wkt['value'];
+
+          if (wkt2.split(/\>/)[1] != undefined) {
+            wkt2 = wkt2.split(/\>/)[1];
+          }
+
+          var feat = parser.read(wkt2);
+          if (feat != undefined) {
+            features.push(feat);
+          }
+        }
+
+        for (i = 0; i < features.length; ++i) {
+          if (!bounds) {
+            bounds = features[i].geometry.getBounds();
+          } else {
+            bounds.extend(features[i].geometry.getBounds());
+          }
+        }
+
+        vectors.addFeatures(features);
+        map.zoomToExtent(bounds);
+      }
+
+      function escape(query) {
+        return query.replace(/</gi, '&lt;').replace(/>/gi, '&gt;');
+      }
+    </script>
+
+  </head>
+
+  <body>
+    <div id="container">
+
+      <div id="header">
+        <h1><span class="bolder">Geo</span>Sparql <span class="bolder">Query</span> Tool</h1>
+      </div>
+
+      <div id="inputArea">
+        <p>User Input</p>
+        <hr/>
+
+        <p>
+          1. Select Feature Type:
+          <span id="featureTypeSelector"></span>
+        </p>
+
+        <p>
+          2. Select Feature:
+          <span id="featureSelector"></span>
+        </p>        
+
+        <p>
+          3. Select Spatial Relationship:  [result
+          <select id="relationshipSelector" onchange="listRelatedFeatures();">
+            <option value="sfEquals">SF: Equals</option>
+            <option value="sfContains">SF: Contains</option>
+            <option value="sfDisjoint">SF: Disjoint</option>
+            <option value="sfIntersects">SF: Intersects</option>
+            <option value="sfOverlaps">SF: Overlaps</option>
+            <option value="sfTouches">SF: Touches</option>
+            <option value="sfWithin">SF: Within</option>
+            <option value="ehEquals">9-IM: Equals</option>
+            <option value="ehDisjoint">9-IM: Disjoint</option>
+            <option value="ehMeet">9-IM: Meet</option>
+            <option value="ehOverlap">9-IM: Overlap</option>
+            <option value="ehCovers">9-IM: Covers</option>
+            <option value="chCoveredBy">9-IM: CoveredBy</option>
+            <option value="ehInside">9-IM Inside</option>
+            <option value="ehContains">9-IM: Contains</option>
+            <option value="rcc8Eq">rcc8Eq</option>
+            <option value="rcc8dc">rcc8dc</option>
+            <option value="rcc8po">rcc8po</option>
+            <option value="rcc8tppi">rcc8tppi</option>
+            <option value="rcc8tpp">rcc8tpp</option>
+            <option value="rcc8ntpp">rcc8ntpp</option>
+            <option value="rcc8ntppi">rcc8ntppi</option>
+          </select>
+          Feature]
+        </p>
+
+
+        <hr/>
+        <span id="queryResult"></span>
+
+        <hr/>
+        <div id="queryArea">
+          <p>Query Text:</p>
+        </div>
+
+      </div>
+
+      <div id="mapArea"></div>
+
+      <div id="footer">
+        <p>
+          Using: 
+          <select id="hostSelector">
+            <option>http://grove.cs.jmu.edu</option>
+            <option>http://geo-query.cs.jmu.edu</option>
+          </select>
+        </p>
+      </div>
+
+    </div>
+  </body>
+</html>

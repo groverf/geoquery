@@ -1,0 +1,164 @@
+/* 
+    Document   : layout for geosparql query tool, V0.4
+    Created on : April 19, 2013
+    Author     : groverf
+*/
+
+/* HTML Tags */
+body {
+  background:#EEE;
+  margin:0;
+  padding:0;
+  font-family: arial,  helvetica, sans-serif;
+  font-size: small;
+}
+
+table {
+  padding: 0;
+  margin: 0;
+}
+td {
+  padding-left: 10px;
+  padding-right: 10px;
+  padding-bottom: 0px;
+  padding-top: 0px;
+  vertical-align: middle;
+  min-width: 10px;
+}
+
+ul {
+  margin: 0;
+  padding: 2px;
+}
+ul li {
+  list-style-type: none;
+}
+
+/* Classes */
+.colorGroup1 {
+  background: #F79F81;
+}
+.colorGroup2 {
+  background: #81F7D8;
+}
+.colorGroup3 {
+  background: #FDAF5C;
+}
+
+.centered {
+  text-align: center;
+}
+.dialog {
+/* position: relative; */
+/*  z-index:8 !important; */
+}
+
+.logo {
+  float: right;
+  padding: 5px;
+  vertical-align: middle;
+  margin: 0px;
+}
+
+.olControlLayerSwitcher {
+  font-size: 8pt;
+}
+
+.olControlMousePosition {
+  bottom: 20px ;
+  left:   20px ;
+}
+
+.right {
+  float:right;
+}
+.left {
+  float:left;
+}
+
+.nameBox {
+  background:lightgray; 
+  padding: 1px 5px 1px 5px;
+}
+
+.resultBox {
+  padding: 5px;
+  overflow-x: scroll;
+}
+
+/* Identified Elements */
+#container {
+  position: relative;
+  min-width: 1020px;
+  width: 98%;
+  margin: 15px;
+  border: 1px solid #000;
+  background: #ddd;
+  overflow-x: scroll;
+}
+
+/* The height of header images is set to 60 px */
+#header {
+  height: 75px;
+  width: auto;
+  background: #66E;
+  border-bottom:10px solid #44A;
+}
+
+#header h1, h2, h3, h4 {
+  color:#bbb;
+  font-size:22pt;
+  margin:0;
+  padding: 5px;
+}
+
+#header .bolder {
+  font-weight: bold;
+  color: #fff;
+}
+
+#inputArea {
+  height: auto;
+  width: auto;
+  background: #AAAAFF;
+  padding:3px;
+  margin:0;
+  overflow-x: scroll;
+}
+
+#resultDiv {
+  width: 29%;
+  height: auto;
+  background: #DDDDFF;
+  float: left;
+  margin: 0;
+  overflow-x: scroll;
+  font-size: small;
+}
+
+#mapArea {
+  width: 70%;
+  height: 800px;
+  background: #AAAAFF;
+  float: right; 
+  margin: 0;
+  position: relative;
+  z-index:5 !important;
+  overflow-y: scroll;
+}
+
+#footer {
+  clear: both;
+  height: 10%;
+  border-top:1px solid #000;
+  background:#44A;
+  padding:10px;
+  color:#fff;
+  font-size:8pt;
+  text-align:center;
+}
+
+#buttonArea {
+  float: right;
+  margin-right: 5px;
+}

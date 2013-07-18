@@ -1,0 +1,183 @@
+<!--
+Copyright 2013 RFGrove. All rights reserved.
+-->
+<!--
+  Geoquery V0.3
+
+  Geographical query tool, based on OpenLayers. Uses GeoSparql to query a
+  Parliament server.
+-->
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>GeoQuery</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <link rel="stylesheet" type="text/css" href="static/css/layout-0.3.css">
+
+    <link rel="stylesheet" href="http://code.jquery.com/ui/1.10.0/themes/base/jquery-ui.css" />
+
+    <script src="http://code.jquery.com/jquery-1.8.3.js"></script>
+    <script src="http://code.jquery.com/ui/1.10.0/jquery-ui.js"></script>
+
+    <script type="text/javascript" src="static/OpenLayers-2.12.js"></script>
+    <script type="text/javascript" src="static/proj4js.js"></script>
+
+    <script type="text/javascript" src="static/script/app-0.3.js"></script>
+
+  <body>
+
+    <div id="container">
+
+      <div id="header">
+        <h1>
+          <span class="bolder">Geo</span>Sparql <span class="bolder">Query</span> Tool
+          <img class="logo" src="static/image/jmu.jpg" alt="James Madison University logo"/>
+          <img class="logo" src="static/image/jmu.jpg" alt="James Madison University logo"/>
+        </h1>
+      </div>
+
+      <div id="inputArea">
+
+        <input type="button" value="+/- Search" onclick="$('#searchDiv').slideToggle();"/>
+        <input type="button" value="Clear Map" class="buttonRight" onclick="searchResultLayer.removeAllFeatures();" />
+        <div id="searchDiv" hidden="hidden">
+
+          <table width="80%">
+            <tbody>
+              <tr>
+                <td width="40%" class="colorGroup1">
+                  <ul>
+                    <li>
+                      1. Feature Type: 
+                      <span id="featureTypeSelector1"></span>
+                    </li>
+                    <li>
+                      2. Property: 
+                      <span id="propertySelector1"></span>
+                    </li>
+                    <li>
+                      3. Search Term:
+                      <input id="searchTerm1" type="text">
+                      <input value="Search" onclick="searchFeatures(1);" type="button"/>
+                      <input type="button" value="+/- Search Results" onclick="$('#queryResultArea1').slideToggle();" class="buttonRight"/>
+                    </li>
+                  </ul>
+                </td>
+                <td width="40%" class="colorGroup2">
+                  <ul>
+                    <li>
+                      1. Feature Type: 
+                      <span id="featureTypeSelector2"></span>
+                    </li>
+                    <li>
+                      2. Property: 
+                      <span id="propertySelector2"></span>
+                    </li>
+                    <li>
+                      3. Search Term:
+                      <input id="searchTerm2" type="text">
+                      <input value="Search" onclick="searchFeatures(2);" type="button"/>
+                      <input type="button" value="+/- Search Results" onclick="$('#queryResultArea2').slideToggle();" class="buttonRight"/>
+                    </li>
+                  </ul>
+                </td>                
+              </tr>
+            </tbody>
+          </table>
+
+        </div>
+
+        <hr/>
+
+        <input type="button" value="+/- Spatial Operators" onclick="$('#spatialOperatorDiv').slideToggle()"/>
+        <div id="spatialOperatorDiv" hidden="hidden">
+          <table width="80%">
+            <tbody>
+              <tr>
+                <td width="40%" class="colorGroup1">
+                  <ul>
+                    <li>
+                      Feature 1: <span id="soFeature1">(not selected yet)</span>
+                    </li>
+                    <li>
+                      <br/>
+                      Spatial operation:
+                      <select id="spatialOperationSelector1">
+                        <option>buffer</option>
+                        <option>convexHull</option>
+                        <option>envelope</option>
+                        <option>boundary</option>
+                      </select>
+                      <input value="Go" id="spatialOp1Button" onclick="spatialOp1();" type="button" disabled="disabled"/>
+                    </li>
+                  </ul>
+                </td>
+
+                <td width="40%" class="colorGroup2">
+                  <ul>
+                    <li>
+                      Feature 2: <span id="soFeature2">(not selected yet)</span>
+                    </li>
+                    <li>
+                      <br/>
+                      Spatial operation: (F1.
+                      <select id="spatialOperationSelector2">
+                        <option>intersection</option>
+                        <option>union</option>
+                        <option>difference</option>
+                        <option>symDifference</option>
+                        <option>distance</option>
+                      </select>
+                      .F2)
+                      <input value="Go" id="spatialOp2Button" onclick="spatialOp2();" type="button" disabled="disabled"/>
+                    </li>
+                  </ul>
+                </td>
+              </tr>
+
+
+            </tbody>
+          </table>
+
+          <hr />
+
+        </div>
+
+      </div>
+
+      <div id="resultDiv">
+        <div id="queryResultArea1" class="colorGroup1">...No search results yet...</div>
+        <div id="queryResultArea2" class="colorGroup2">...No search results yet...</div>
+
+        <hr/>
+
+        <input type="button" value="+/- Layers List" onclick="$('#featureListArea').slideToggle();" class="buttonRight"/>
+        <br/>
+        <span id="featureListArea"></span>
+      </div>
+
+      <div id="mapArea">
+      </div>
+
+      <div id="footer">
+        Using <span id="url"></span>
+        <input type="button" id="urlButton" value="Change URL" onclick="changeUrl();"/>
+        <span id="buttonArea">
+          <input type="button" id="queryButton" value="Show Queries" onclick="showQueries();"/>
+          <input type="button" value="Show Map Bounds" onclick="alert(getMapBoundsAsString());"/>
+        </span>
+      </div>
+
+    </div>
+
+    <div id="queriesDialog" class="dialog" title="Queries dialog">
+      <pre><span id="queryDialogText"></span></pre>
+    </div>
+
+    <div id="attributesDialog" class="dialog" title="Attributes dialog 2">
+      <pre><span id="attributesDialogText"></span></pre>
+    </div>
+
+  </body>
+</html>

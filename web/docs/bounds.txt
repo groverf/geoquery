@@ -1,0 +1,4 @@
+<http://geoquery.cs.jmu.edu/rdf/gu/Geometries/initial_bounds> 
+<http://www.opengis.net/geosparql#asWKT> 
+"POLYGON((-81.25 37.26,-75.95 37.26,-75.95 39.82,-81.25 39.82,-81.25 37.26))"^^<http://www.opengis.net/sf#wktLiteral> . 
+

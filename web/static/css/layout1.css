@@ -1,0 +1,71 @@
+/* 
+    Document   : layout for geosparql query tool, V0.2
+    Created on : Jan 3, 2013, 11:24:10 AM
+    Author     : groverf
+*/
+
+body {
+  background:#EEE;
+  margin:0;
+  padding:0;
+  font-family:arial,  helvetica, sans-serif;
+  font-size:11pt;
+}
+
+#container {
+  position: relative;
+  min-width: 1100px;
+  height: 600 px;
+  width:90%;
+  margin:20px auto 20px auto;
+  border:1px solid #000;
+  background:#ddd;
+}
+
+#header {
+  height:10%;
+  background: #66E;
+  border-bottom:10px solid #44A;
+}
+
+#header h1, h2, h3, h4 {
+  color:#bbb;
+  font-size:22pt;
+  margin:0;
+  padding:40px 10px 10px 10px;
+}
+
+#header .bolder {
+  font-weight: bold;
+  color: #fff;
+}
+
+#inputArea {
+  height: 100%;
+  min-width: 400px;
+  background: #AAFFAA;
+  padding:10px;
+  float:left;
+  margin:0;
+}
+
+#mapArea {
+  width: 600px;
+  height: 600px;
+  background: #AAAAFF;
+  padding:10px;
+  float: right;
+  margin: 0;
+}
+
+#footer {
+  clear: both;
+  height: 10%;
+  border-top:1px solid #000;
+  background:#44A;
+  padding:10px;
+  color:#fff;
+  font-size:8pt;
+  text-align:center;
+}
+

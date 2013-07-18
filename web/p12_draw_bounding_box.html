@@ -1,0 +1,517 @@
+<!--
+Copyright 2013 RFGrove. All rights reserved.
+-->
+<!--
+  Prototype 12:
+
+  Allows the user to draw a bounding box, and to search within it.
+-->
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>GeoQuery</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+    <link rel="stylesheet" type="text/css" href="static/css/layout12.css">
+
+    <link rel="stylesheet" href="http://code.jquery.com/ui/1.10.0/themes/base/jquery-ui.css" />
+    <script src="http://code.jquery.com/jquery-1.8.3.js"></script>
+    <script src="http://code.jquery.com/ui/1.10.0/jquery-ui.js"></script>
+
+    <script type="text/javascript" src="static/OpenLayers-2.12.js"></script>
+    <script type="text/javascript" src="static/proj4js.js"></script>
+
+    <script type="text/javascript">
+      var EPSG4326 = new OpenLayers.Projection("EPSG:4326");
+      var EPSG900913 = new OpenLayers.Projection("EPSG:900913");
+      var map;
+      var wmsLayer;
+      var osmLayer;
+      var vectors;
+      var polygonLayer;
+      var polygon;
+      // This array contains features selected with the  most recent search.
+      var featureSet = new Array();
+      var boxBoundsString;  // bounds of area drawn by the user
+
+      //var maxExtent = new OpenLayers.Bounds(-20037508, -20037508, 20037508, 20037508),
+      //      var maxExtent = new OpenLayers.Bounds(-10000000, 3000000, -5000000, 6000000),
+      //      restrictedExtent = maxExtent.clone(),
+      //      maxResolution = 156543.0339;
+      //      var centerLon = -78.14;
+      //      var centerLat = 38.98;
+
+      /*
+       *  Initialization - get features list
+       */
+      $(document).ready(function() {
+        $("#dialog").dialog({
+          modal: true,
+          autoOpen: false,
+          width: "auto",
+          position: {my: "left top", at: "left top"},
+          title: "GeoSparql Query Text"
+        });
+
+        displayFeatureTypes();
+
+        displayMap();
+      });
+
+      /*
+       * Display a list of features from the Parliament store.
+       */
+      function displayFeatureTypes() {
+        var featureQuery = '\
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n\
+SELECT DISTINCT ?type \n\
+WHERE { \n\
+ ?feature rdf:type ?type . \n\
+} \n'
+
+        $('#dialogText').append(filter(featureQuery) + "\n");
+
+        var request = $.ajax({
+          type: "GET",
+          url: "http://grove.cs.jmu.edu/parliament/sparql",
+          data: {
+            "query": featureQuery,
+            "output": "json"
+          }
+        });
+
+        request.done(function(msg) {
+          var result;
+
+          // sometimes a string, sometimes an object ???
+          if (typeof(msg) == "string") {
+            result = JSON.parse(msg);
+          }
+          else {
+            result = msg;
+          }
+
+          updateSelect(result);
+        });
+
+        request.fail(function(jqXHR, textStatus) {
+          alert("Request Failed: " + textStatus);
+        });
+      }
+
+      /*
+       * Update the selector
+       *
+       * Parameter: result, the return value from Parliament
+       * Return: none
+       */
+      function updateSelect(result) {
+        var $select = $('<select></select>');
+
+        for (var j = 0; j < result['results']['bindings'].length; ++j) {
+          for (var key in result['results']['bindings'][j]) {
+            var bindings = result['results']['bindings'];
+            $select.append($('<option>').text(bindings[j][key].value));
+          }
+        }
+
+        $('#featureSelector').empty();
+        $('#featureSelector').append($select);
+      }
+
+      /*
+       * Display an initial map;
+       */
+      function displayMap() {
+        var mapOptions = {
+          projection: new OpenLayers.Projection('EPSG:900913'),
+          displayProjection: new OpenLayers.Projection('EPSG:4326'),
+          numZoomLevels: 16
+        };
+        map = new OpenLayers.Map('mapArea', mapOptions);
+
+        wmsLayer = new OpenLayers.Layer.WMS(
+                'WMS Layer Title',
+                'http://vmap0.tiles.osgeo.org/wms/vmap0',
+                {layers: 'basic'},
+        {
+          "maxResolution": 33395,
+          "minResolution": "auto"
+        });
+
+        var osmLayer = new OpenLayers.Layer.OSM('OpenStreeetMap Layer');
+
+        vectors = new OpenLayers.Layer.Vector('Vector Layer');
+        polygonLayer = new OpenLayers.Layer.Vector("Polygon Layer");
+
+        map.addLayers([osmLayer, wmsLayer, vectors, polygonLayer]);
+
+        map.addControls([
+          // new OpenLayers.Control.OverviewMap(),
+          new OpenLayers.Control.PanZoomBar({}),
+          new OpenLayers.Control.LayerSwitcher({}),
+          // new OpenLayers.Control.Permalink(),
+          // new OpenLayers.Control.ScaleLine(),
+          // new OpenLayers.Control.KeyboardDefaults(),
+          new OpenLayers.Control.MousePosition(),
+          new OpenLayers.Control.Navigation({'zoomWheelEnabled': false})
+        ]);
+
+        // add polygon draw tool to map
+        polygon = new OpenLayers.Control.DrawFeature(polygonLayer,
+                OpenLayers.Handler.Polygon);
+        // don't allow more than one polygon to be added
+        polygon.featureAdded = function() {
+          polygon.deactivate();
+        };
+        map.addControl(polygon);
+
+        // need to disable mouse zoom for each control
+        controls = map.getControlsByClass('OpenLayers.Control.Navigation');
+        for (var i = 0; i < controls.length; ++i)
+          controls[i].disableZoomWheel();
+
+        if (!map.getCenter()) {
+          map.zoomToMaxExtent();
+        }
+      }
+
+      /*
+       * Get a list of features matching the specified string, within
+       * the extent of the map.
+       * 
+       * 1. setup and send the ajax query
+       * 2. when completed, invoke updateResults to list results
+       */
+      function searchFeatures() {
+        $('#queryResult').empty();
+        $('#queryResult').append('<p>Result:  (Click a result to map it.)</p>')
+
+        // Set search type based on user's selection
+        var searchType = $("input:radio[name=searchBy]:checked").val();
+        var searchTerm;
+        if (searchType == 'LABEL') {
+          searchTerm = 'FILTER( regex(?label, "' + $('#labelIn').val() + '", "i" ) ) \n';
+        }
+        else {
+          searchTerm = '?feature rdf:type <' + $('#featureSelector option:selected').text() + '> . \n';
+        }
+
+        // Set bounds based on user's selection
+        var bounds, boundsString;
+        var searchRegion = $("input:radio[name=searchRegion]:checked").val();
+        var polygonFeatures = polygonLayer.features;
+        if (polygonFeatures.length > 0 && searchRegion == 'BOX') {
+          bounds = polygonFeatures[0].geometry.bounds;
+        }
+        else {
+          bounds = map.getExtent().clone();
+        }
+        bounds = bounds.transform(EPSG900913, EPSG4326);
+        boundsString = bounds.toGeometry().toString();
+
+        var query = '\
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>\n\
+PREFIX geof: <http://www.opengis.net/def/function/geosparql/>\n\
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>\n\
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>\n\
+SELECT DISTINCT ?feature ?label \n\
+WHERE { \n\
+  ?feature rdfs:label ?label . \n\
+  FILTER (?feature != <http://cegis.usgs.gov/rdf/struct/Features/None>)  .\n'
+                + searchTerm
+                + '?feature geo:hasGeometry ?geom . \n\
+  ?geom geo:asWKT ?wkt . \n\
+  FILTER (geof:sfWithin(?wkt, "' + boundsString + '"^^geo:wktLiteral))\n\
+} LIMIT 100\n';
+
+        $('#dialogText').append(filter(query) + "\n");
+
+        var request = $.ajax({
+          type: "GET",
+          url: "http://grove.cs.jmu.edu/parliament/sparql",
+          data: {
+            "query": query,
+            "output": "json"
+          }
+        });
+
+        request.done(function(msg) {
+          var result;
+
+          // sometimes a string, sometimes an object ???
+          if (typeof(msg) == "string") {
+            result = JSON.parse(msg);
+          }
+          else {
+            result = msg;
+          }
+
+          updateResult(result);
+        });
+
+        request.fail(function(jqXHR, textStatus) {
+          alert("Request Failed: " + textStatus);
+        });
+      }
+
+      /*
+       * List results of the query.
+       *
+       * @parameter  A JSON object encapsulating the GeoSPARQL query result.
+       * @return  none
+       */
+      function updateResult(result) {
+        var $tbl = $('<table>').attr('id', 'basicTable');
+
+        /* Create table headings */
+        var $tr = $('<tr>');
+
+        for (var i = 0; i < result['head']['vars'].length; ++i) {
+          $tr.append($('<th>').text(result['head']['vars'][i]));
+        }
+        $tbl.append($tr);
+        for (var j = 0; j < result['results']['bindings'].length; ++j) {
+          $tr = $('<tr>');
+          //         for (var key in result['results']['bindings'][j]) {
+          var value = result['results']['bindings'][j]['label'].value;
+
+          if (value.length > 50) {
+            $td = $('<td>').text(j + '. ' + value.substring(0, 50) + '...');
+          } else {
+            $td = $('<td>').text(j + '. ' + value);
+          }
+
+          featureSet[j + 1] = result['results']['bindings'][j]['feature'].value;
+          $td.click(function() {
+            var row = $(this).parent().parent().children().index($(this).parent());
+            addFeatureToMap(featureSet[row], $(this).text());
+          });
+
+          $td.mouseenter(function() {
+            $(this).css({backgroundColor: 'white'});
+          })
+          $td.mouseleave(function() {
+            $(this).css({backgroundColor: ''});
+          })
+
+          $tr.append($td);
+          //        }
+          $('#queryResult').append($tr);
+        }
+
+        $('#queryResult').append('<br/><p>Done.</p>');
+      }  // end updateResult()
+
+      /*
+       * Display the selected feature on the map, and update the selection
+       * criteria with the feature name.
+       *
+       * Parameters: none
+       * Returns: none
+       */
+      function addFeatureToMap(feature, label) {
+        var query = '\
+PREFIX geo: <http://www.opengis.net/ont/geosparql#>\n\
+SELECT ?wkt \n\
+WHERE { \n\
+   <' + feature + '> geo:hasGeometry ?g . \n\
+   ?g geo:asWKT ?wkt . \n\
+} \n';
+
+        $('#dialogText').append(query + "\n");
+
+        var request = $.ajax({
+          type: "GET",
+          url: "http://grove.cs.jmu.edu/parliament/sparql",
+          data: {
+            "query": query,
+            "output": "json"
+          }
+        });
+
+        request.done(function(msg) {
+          var result;
+
+          // sometimes a string, sometimes an object ???
+          if (typeof(msg) == "string") {
+            result = JSON.parse(msg);
+          }
+          else {
+            result = msg;
+          }
+
+          updateMap(result, label);
+        });
+
+        request.fail(function(jqXHR, textStatus) {
+          alert("Request Failed: " + textStatus);
+        });
+      }
+
+      /*
+       * Update map display with the given result.
+       *
+       * Parameters: result, the value returned from Parliament
+       * Return:
+       */
+      function updateMap(result, label)
+      {
+        var features = new Array();
+        var bounds;
+        var options = {
+          'internalProjection': map.baseLayer.projection,
+          'externalProjection': new OpenLayers.Projection('EPSG:4269')
+        };
+        var parser = new OpenLayers.Format.WKT(options);
+
+        vectors.removeAllFeatures();
+
+        for (i = 0; i < result['results']['bindings'].length; ++i) {
+          var wkt = result['results']['bindings'][i]['wkt'];
+
+          if (wkt == undefined) {
+            alert('no wkt available');
+            return true;
+          }
+
+          // Remove CRS from from of wkt
+          var wkt2 = wkt['value'];
+
+          if (wkt2.split(/\>/)[1] != undefined) {
+            wkt2 = wkt2.split(/\>/)[1];
+          }
+
+          var feat = parser.read(wkt2);
+          if (feat != undefined) {
+            features.push(feat);
+          }
+        }
+
+        for (i = 0; i < features.length; ++i) {
+          if (!bounds) {
+            bounds = features[i].geometry.getBounds();
+          } else {
+            bounds.extend(features[i].geometry.getBounds());
+          }
+        }
+
+        // if the bounds has area, store a POLYGON for future searching
+        // and enable the "search within feature" option.
+        // Also, update the feature name in the selection criteria.
+        //        if (bounds.getWidth() == 0 || bounds.getHeight() ==0) {
+        //          featureBoundsString = undefined;
+        //          $("#inputArea .currentFeature").attr( "disabled" , "disabled");
+        //          $("#inputArea .currentMap").attr( "checked" , "checked");
+        //          $('#featureName').empty();
+        //          $('#featureName').append('(no selection yet)');
+        //        }
+        //        else {
+        //          featureBoundsString = bounds.clone().transform(EPSG900913, EPSG4326).toGeometry().toString();
+        //          $("#inputArea .currentFeature").removeAttr( "disabled" );
+        //          $('#featureName').empty();
+        //          $('#featureName').append(label);
+        //        }
+
+        vectors.addFeatures(features);
+        map.zoomToExtent(bounds);
+
+        disablePolygon();
+      }
+
+      /*
+       * Replace HTML delimiters (<, >) with escape codes. 
+       */
+      function filter(query) {
+        return query.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      }
+
+      /*
+       * Show the accumulated Geosparql queries in a dialog box.
+       */
+      function showQueries() {
+        $('#dialog').dialog('open');
+      }
+
+      // enable the polygon selection
+      function enablePolygon() {
+        polygon.activate();
+      }
+
+      // disable and uncheck the polygon selection
+      function disablePolygon() {
+        polygonLayer.removeAllFeatures();
+        polygon.deactivate();
+        $("#inputArea .currentMap").attr("checked", "checked");
+      }
+
+    </script>
+
+  <body>
+
+    <div id="container">
+
+      <div id="header">
+        <h1><span class="bolder">Geo</span>Sparql <span class="bolder">Query</span> Tool</h1>
+      </div>
+
+      <div id="inputArea">
+        <table>
+          <tbody>
+            <tr>
+              <td>
+                <ul>
+                  <li>Select by:</li>
+                  <li>
+                    <input type="radio" class="searchByLabel" name="searchBy" value="LABEL" checked="checked">
+                    Feature label: 
+                    <input id="labelIn" type="text"></li>
+                  <li>
+                    <input type="radio" class="searchByType" name="searchBy" value="TYPE">
+                    Feature type:
+                    <span id="featureSelector">...working...</span>
+                  </li>
+                </ul>
+              </td>
+              <td>
+                <ul>
+                  <li>Search Within</li>
+                  <li>
+                    <input type="radio" name="searchRegion" class="currentMap" value="MAP" checked="checked"
+                           onclick="disablePolygon();">
+                    Current Map
+                  </li>
+                  <li>
+                    <input type="radio" name="searchRegion" class="currentFeature" value="BOX" 
+                           onclick="enablePolygon();">
+                    Polygon
+                    <br/>&nbsp;&nbsp;Click on the map to add points to the polygon. 
+                    <br/>&nbsp;&nbsp;Double-click to finish drawing.
+                  </li>
+                </ul>
+              </td>
+              <td>&nbsp;</td>
+              <td>
+                <input value="Search" onclick="searchFeatures();" type="button"/>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <input type="button" id="queryButton" value="Show Queries" onclick="showQueries();">
+      </div>
+
+      <div id="queryResult"><p>Search Results:</p></div>
+
+      <div id="mapArea"></div>
+
+      <div id="footer">Using http://grove.cs.jmu.edu/parliament</div>
+
+    </div>
+
+    <div id="dialog" title="Basic dialog">
+      <pre><span id="dialogText"></span></pre>
+    </div>
+
+  </body>
+</html>
